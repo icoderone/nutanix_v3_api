@@ -1,0 +1,159 @@
+How to create a VM using Prism Central Rest api v3
+
+We will create VM using Prism Central Rest API explorer and python. 
+To create a VM we need to send POST call to Prism Central ip. POST call should include a 'body' parameter which contains VM specs. Required parameters in 'body' param should be: number of VCPUs(num_vcpus_per_socket), memory size in MIB(memory_size_mib), name, and cluster reference. Disk and Network nics inclusive all other parameters optional. But we will add iscsi and ide, and one network nic in specific network/subnet. 'body' param will include two sections(higher level keys) - 'spec' and 'metadata'. 'spec' key coonsists 'description', 'resources', 'name' and 'cluster_reference'. 'resources' contains: 'num_vcpus_per_socket', 'memory_size_mib', 'disk_list', 'nic_list'. 'cluster_reference' contains: 'kind' and 'uuid' keys. 
+ 'metadata' key has one required parameter which is 'kind': 'vm'. 
+If POST call is successful then VM create task will be created and 'response' will include task uuid. You can then check task status with api call or from Prism Central for task result. 
+
+ {
+  "spec": {
+    "description": "string",
+    "resources": {
+      "num_vcpus_per_socket": 0,
+      "memory_size_mib": 0,
+      "disk_list": [
+        {
+          "device_properties": {
+            "disk_address": {
+              "adapter_type": "SCSI",
+              "device_index": 0
+            },
+            "device_type": "DISK"
+          },
+          "disk_size_mib": 0
+        }
+      ],
+      "nic_list": [
+        {
+          "nic_type": "NORMAL_NIC",
+          "subnet_reference": {
+            "kind": "subnet",
+            "uuid": "string"
+          }
+        }
+      ]
+    },
+    "name": "nuran_v3api",
+    "cluster_reference": {
+      "kind": "cluster",
+      "uuid": "string"
+    }
+  },
+  "metadata": {
+    "kind": "vm"
+  }
+}
+
+Rest API explorer: 
+
+1. Open REST API explorer from Prism Central: 
+ {img}
+2. Scrool down to 'vms' section and click on 'show/hide'
+ {img}
+3. Copy early shown body model and modify as required or click on Model scheme and copy the content to text editor. Remove all unnecessary fields and keep only required and additional parameters you need.
+ {img}
+4. In this example final 'body' should look like below:
+  {
+  "spec": {
+    "description": "v3api_vm",
+    "resources": {
+      "num_vcpus_per_socket": 2,
+      "memory_size_mib": 4096,
+      "disk_list": [
+        {
+          "device_properties": {
+            "disk_address": {
+              "adapter_type": "SCSI",
+              "device_index": 1
+            },
+            "device_type": "DISK"
+          },
+          "disk_size_mib": 25258
+        }
+      ],
+      "nic_list": [
+        {
+          "nic_type": "NORMAL_NIC",
+          "subnet_reference": {
+            "kind": "subnet",
+            "uuid": "565784d2-7a68-4a16-a1bd-92473760f607"
+          }
+        }
+      ]
+    },
+    "name": "nuran_v3api",
+    "cluster_reference": {
+      "kind": "cluster",
+      "uuid": "00052c80-729d-8705-0000-0000000051fa"
+    }
+  },
+  "metadata": {
+    "kind": "vm"
+  }
+}
+ Modified specifications are: 'description': 'v3api_vm', 'num_vcpus_per_socket': 2, 'memory_size_mib': 4096(4G ram), 'disk_list': type iscsi, device index 1, disk size 25258 MIB (20G), nic_list: subnet uuid 565784d2-7a68-4a16-a1bd-92473760f607, 'name': 'vasya_v3api', 'cluster_reference': uuid 00052c80-729d-8705-0000-0000000051fa. 
+5. As an optional step it is recommended to verify if 'body' is json formatted. If 'body' is not correctly formatted, call will fail) 502, 'Oops - Server error')
+ {img}
+6. Copy 'body' to Rest API explorer and click 'Try it out!'. API explorer will send a POST request to create VM. 
+ {img}
+
+Python: 
+
+Copy amnesia.py file to the same directory where your python file is, so it will be importable. Here is an example code: 
+import json
+from amnesia import nutanixApiv3
+
+
+body = {
+  "spec": {
+    "description": "string",
+    "resources": {
+      "num_vcpus_per_socket": 2,
+      "memory_size_mib": 4096,
+      "disk_list": [
+        {
+          "device_properties": {
+            "disk_address": {
+              "adapter_type": "SCSI",
+              "device_index": 1
+            },
+            "device_type": "DISK"
+          },
+          "disk_size_mib": 25258
+        }
+      ],
+      "nic_list": [
+        {
+          "nic_type": "NORMAL_NIC",
+          "subnet_reference": {
+            "kind": "subnet",
+            "uuid": "565784d2-7a68-4a16-a1bd-92473760f607"
+          }
+        }
+      ]
+    },
+    "name": "nuran_v3api1",
+    "cluster_reference": {
+      "kind": "cluster",
+      "uuid": "00052c80-729d-8705-0000-0000000051fa"
+    }
+  },
+  "metadata": {
+    "kind": "vm"
+  }
+}
+
+def main():
+    username = 'admin'
+    password = 'Nutanix/1234'
+    cluster_ip = '10.64.35.40'
+    base_url = "https://%s:9440/api/nutanix/v3/" %cluster_ip
+    api = nutanixApiv3(base_url, username, password)
+    data = api.vm_create(body)
+    if data.status_code != 202:
+        print 'status code: %s' %data.status_code
+    print 'Response data:\n%s' %data.text
+
+
+if __name__ == '__main__':
+    main()
